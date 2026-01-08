@@ -4,6 +4,9 @@
 [![Documentation](https://img.shields.io/badge/docs-pdoc3-blue)](https://DiGyt.github.io/asrpy/)
 [![Bluesky](https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff&label=Follow%20me%20on&color=0285FF)](https://bsky.app/profile/gutlin.bsky.social)
 
+> [!WARNING]
+> This is a temtative/work-in-progress for adapting the original ASRpy to the Juggler's ASR method - DO NOT USE THIS REPO!
+
 > [!WARNING]  
 > This toolbox is currently not actively maintained. I would love to, but we all know that the incentives set for scientists don't really encourage work like this. :')
 ___
