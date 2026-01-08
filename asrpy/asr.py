@@ -13,6 +13,8 @@ import numpy as np
 from scipy import linalg
 from scipy.stats import genextreme
 
+from sklearn.cluster import DBSCAN
+
 from numpy.linalg import pinv
 
 from .asr_utils import (geometric_median, fit_eeg_distribution, yulewalk,
@@ -253,6 +255,35 @@ class ASR():
             sample_mask = amp <= amp_mode
 
             # build calibration data
+            clean = X[:, sample_mask]
+
+        elif method == "dbscan":
+            
+
+            # 1) construct per-sample feature space
+            #    pre-emphasis + abs + channel-sorted amplitudes as in Juggler's ASR [web:7]
+            # here, simplest proxy: abs + sort across channels
+            feats = np.sort(np.abs(X), axis=0)[::-1, :]  # (n_channels, n_samples), largest first
+            feats = feats.T  # shape: (n_samples, n_channels) for sklearn
+
+            # 2) run DBSCAN
+            # eps and min_samples will need tuning on your data
+            eps = 0.5 * np.median(np.std(feats, axis=0))  # crude scale-adaptive eps
+            db = DBSCAN(eps=eps, min_samples=5, n_jobs=-1)
+            labels = db.fit_predict(feats)  # length: n_samples [web:57]
+            unique, counts = np.unique(labels, return_counts=True)
+
+            non_noise = unique != -1
+            if not np.any(non_noise):
+                raise RuntimeError("DBSCAN found no non-noise cluster; adjust eps/min_samples.")
+
+            largest_cluster = unique[non_noise][np.argmax(counts[non_noise])]
+            sample_mask = labels == largest_cluster
+
+            # 3) build sample mask: all non-noise labels are considered "clean"
+            sample_mask = labels != -1
+
+            # 4) build calibration data
             clean = X[:, sample_mask]
 
         else:
