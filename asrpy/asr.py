@@ -11,6 +11,8 @@ import warnings
 
 import numpy as np
 from scipy import linalg
+from scipy.stats import genextreme
+
 from numpy.linalg import pinv
 
 from .asr_utils import (geometric_median, fit_eeg_distribution, yulewalk,
@@ -158,8 +160,8 @@ class ASR():
         self.cov = None
         self._fitted = False
 
-    def fit(self, raw, picks="eeg", start=0, stop=None,
-            return_clean_window=False):
+    def fit(self, raw, picks="eeg", start=0, stop=None, q_tail = 0.90, method = "standard", return_clean_window=False):
+
         """Calibration for the Artifact Subspace Reconstruction method.
 
         The input to this data is a multi-channel time series of calibration
@@ -216,19 +218,47 @@ class ASR():
 
         """
 
-        # extract the data
+    # extract the data
         X = raw.get_data(picks=picks, start=start, stop=stop)
 
-        # Find artifact-free windows first
-        clean, sample_mask = clean_windows(
-            X,
-            sfreq=self.sfreq,
-            win_len=self.win_len,
-            win_overlap=self.win_overlap,
-            max_bad_chans=self.max_bad_chans,
-            min_clean_fraction=self.min_clean_fraction,
-            max_dropout_fraction=self.max_dropout_fraction)
+        if method == "standard":
+            # Find artifact-free windows first (original ASR behavior)
+            clean, sample_mask = clean_windows(
+                X,
+                sfreq=self.sfreq,
+                win_len=self.win_len,
+                win_overlap=self.win_overlap,
+                max_bad_chans=self.max_bad_chans,
+                min_clean_fraction=self.min_clean_fraction,
+                max_dropout_fraction=self.max_dropout_fraction,
+            )
 
+        elif method == "gev":
+            # robust per-sample amplitude (e.g., L2 across channels)
+            amp = np.linalg.norm(X, axis=0)  # shape: (n_samples,)
+
+            # define tail region
+            thr_tail = np.quantile(amp, q_tail)
+            tail_samples = amp[amp >= thr_tail]
+
+            # fit GEV to the tail
+            c, loc, scale = genextreme.fit(tail_samples)
+
+            # find mode of fitted GEV over the tail range
+            x_grid = np.linspace(tail_samples.min(), tail_samples.max(), 1000)
+            pdf_vals = genextreme.pdf(x_grid, c, loc=loc, scale=scale)
+            amp_mode = x_grid[np.argmax(pdf_vals)]
+
+            # per-sample clean mask: amplitudes to the left of the mode
+            sample_mask = amp <= amp_mode
+
+            # build calibration data
+            clean = X[:, sample_mask]
+
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        
         # Perform calibration
         self.M, self.T = asr_calibrate(
             clean,
@@ -240,11 +270,11 @@ class ASR():
             max_dropout_fraction=self.max_dropout_fraction,
             min_clean_fraction=self.min_clean_fraction,
             ab=(self.A, self.B),
-            method=self.method)
+            method=self.method,
+        )
 
         self._fitted = True
 
-        # return data if required
         if return_clean_window:
             return clean, sample_mask
 
