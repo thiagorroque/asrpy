@@ -15,6 +15,6 @@ the respective submodules.
 
 """
 
-__version__ = "0.0.8"
+__version__ = "1.0.0"
 
 from .asr import ASR, asr_calibrate, asr_process, clean_windows  # noqa: F401
