@@ -5,13 +5,13 @@
 [![Bluesky](https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff&label=Follow%20me%20on&color=0285FF)](https://bsky.app/profile/gutlin.bsky.social)
 
 > [!WARNING]
-> This is a temtative/work-in-progress for adapting the original ASRpy to the Juggler's ASR method - DO NOT USE THIS REPO!
+> This is a work-in-progress for adapting the original ASRpy to the Juggler's ASR method - It is still under test!
 
 ___
 
 # ASRpy
 
-Artifact Subspace Reconstruction for Python
+Artifact Subspace Reconstruction for Python - Now with the Juggler's ASR method implemented according to Kim et al., (2025)
 
 - [Introduction](#introduction)
 - [Installation](#installation)
@@ -47,8 +47,11 @@ For an alternative implementation check their repository.
 A Riemannian Modification of Artifact Subspace Reconstruction for EEG 
 Artifact Handling. Frontiers in Human Neuroscience, 13. 
 https://doi.org/10.3389/fnhum.2019.00141
-   
-   
+- Kim, H., Chang, C., Kothe, C., Iversen, J. R., Miyakoshi, M. (2025)
+Juggler’s ASR: Unpacking the principles of artifact subspace reconstruction for revision toward extreme MoBI.
+Journal of Neuroscience Methods.
+https://doi.org/10.1016/j.jneumeth.2025.110465
+
 ## Installation
 
 You can install the latest ASRpy release using:
@@ -57,7 +60,7 @@ pip install asrpy
 ```
 or install the current working version directly from GitHub, using:
 ```
-pip install git+https://github.com/DiGyt/asrpy.git
+pip install git+https://github.com/thiagorroque/asrpy
 ```
 
 
@@ -71,6 +74,13 @@ asr.fit(raw)
 raw = asr.transform(raw)
 ```
 
+To use the newlly added Juggler`s ASR implementation, you need to add a "method" parameter to the fit method. Both GEV-based and DBSCAN have been implemented in this new version, the default method now is "standard", which result in the original ASRpy implementation.
+```
+asr.fit(raw, method = "gev")
+asr.fit(raw, method = "dbscan")
+```
+
+[ToDo: add example for the Juggler's ASR implementation]
 To get started, we recommend going through the [example notebook](https://github.com/DiGyt/asrpy/blob/main/example.ipynb). You can simply run them via your internet browser (on Google Colab's hosted runtime) by clicking the  button below.
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DiGyt/asrpy/blob/main/example.ipynb)
