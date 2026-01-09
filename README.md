@@ -1,8 +1,3 @@
-[![Tests](https://github.com/DiGyt/asrpy/actions/workflows/publish.yml/badge.svg)](https://github.com/DiGyt/asrpy/actions/workflows/publish.yml)
-[![codecov](https://codecov.io/gh/DiGyt/asrpy/branch/main/graph/badge.svg)](https://codecov.io/gh/DiGyt/asrpy)
-[![PyPI version](https://img.shields.io/pypi/v/asrpy.svg)](https://pypi.org/project/asrpy/)
-[![Documentation](https://img.shields.io/badge/docs-pdoc3-blue)](https://DiGyt.github.io/asrpy/)
-[![Bluesky](https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff&label=Follow%20me%20on&color=0285FF)](https://bsky.app/profile/gutlin.bsky.social)
 
 > [!WARNING]
 > This is a work-in-progress for adapting the original ASRpy to the Juggler's ASR method - It is still under test!
@@ -75,12 +70,13 @@ raw = asr.transform(raw)
 ```
 
 To use the newlly added Juggler`s ASR implementation, you need to add a "method" parameter to the fit method. Both GEV-based and DBSCAN have been implemented in this new version, the default method now is "standard", which result in the original ASRpy implementation.
-```
+```python
 asr.fit(raw, method = "gev")
 asr.fit(raw, method = "dbscan")
 ```
 
 [ToDo: add example for the Juggler's ASR implementation]
+
 To get started, we recommend going through the [example notebook](https://github.com/DiGyt/asrpy/blob/main/example.ipynb). You can simply run them via your internet browser (on Google Colab's hosted runtime) by clicking the  button below.
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DiGyt/asrpy/blob/main/example.ipynb)
