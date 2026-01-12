@@ -236,6 +236,7 @@ class ASR():
                 min_clean_fraction=self.min_clean_fraction,
                 max_dropout_fraction=self.max_dropout_fraction,
             )
+            
 
         elif method == "gev":
             # robust per-sample amplitude (e.g., L2 across channels)
@@ -256,13 +257,21 @@ class ASR():
             # per-sample clean mask: amplitudes to the left of the mode
             sample_mask = amp <= amp_mode
 
+            keep_frac = sample_mask.mean()
+            if keep_frac < 0.05:
+                raise RuntimeError(
+                f"Calibration mask kept only {keep_frac*100:.1f}% of samples. "
+                "Try lower q_tail (GEV), different eps/min_samples (DBSCAN), "
+                "or a larger cutoff for initial pre-ASR."
+            )
+            
             # build calibration data
             clean = X[:, sample_mask]
 
         elif method == "dbscan":
             # 1) (Optional) temporal downsampling for clustering only
             # e.g., cluster on every k-th sample (cluster_idx) then expand back
-            k = 4  # adjust as needed
+            k = 2  # adjust as needed
             cluster_idx = np.arange(0, X.shape[1], k)
             X_sub = X[:, cluster_idx]  # (n_channels, n_samples_sub)
 
@@ -292,15 +301,32 @@ class ASR():
             largest_cluster = unique[non_noise][np.argmax(counts[non_noise])]
             sample_mask = labels == largest_cluster
 
+            keep_frac = sample_mask.mean()
+            if keep_frac < 0.05:
+                raise RuntimeError(
+                f"Calibration mask kept only {keep_frac*100:.1f}% of samples. "
+                "Try lower q_tail (GEV), different eps/min_samples (DBSCAN), "
+                "or a larger cutoff for initial pre-ASR."
+            )
+
             clean = X[:, sample_mask]
 
         else:
             raise ValueError(f"Unknown method: {method}")
 
-        
+        n_ch, n_samp = clean.shape
+        if n_samp < self.blocksize * 2:
+            raise RuntimeError(
+            f"Not enough clean samples ({n_samp}) for ASR calibration; "
+            f"need at least ~{self.blocksize * 2}. "
+            "Relax calibration criteria (GEV/DBSCAN) or use a longer segment."
+        )
+
+        clean_T = clean.T  # shape: (n_samples_clean, n_channels)
+
         # Perform calibration
         self.M, self.T = asr_calibrate(
-            clean,
+            clean_T,
             sfreq=self.sfreq,
             cutoff=self.cutoff,
             blocksize=self.blocksize,
