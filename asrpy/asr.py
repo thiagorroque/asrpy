@@ -258,30 +258,41 @@ class ASR():
             clean = X[:, sample_mask]
 
         elif method == "dbscan":
-            
-
             # 1) construct per-sample feature space
-            #    pre-emphasis + abs + channel-sorted amplitudes as in Juggler's ASR [web:7]
-            # here, simplest proxy: abs + sort across channels
-            feats = np.sort(np.abs(X), axis=0)[::-1, :]  # (n_channels, n_samples), largest first
-            feats = feats.T  # shape: (n_samples, n_channels) for sklearn
+            feats = np.sort(np.abs(X), axis=0)[::-1, :]
+            feats = feats.T  # shape: (n_samples, n_channels)
+
+            # 1a) Remove samples with NaN or Inf (for stability)
+            valid_mask = np.all(np.isfinite(feats), axis=1)
+            feats_valid = feats[valid_mask]
+            if feats_valid.shape[0] == 0:
+                raise RuntimeError("All feature samples contain NaN or Inf. Check input data.")
+
+            # 1b) Robust scaling (median and IQR)
+            med = np.median(feats_valid, axis=0)
+            iqr = np.subtract(*np.percentile(feats_valid, [75, 25], axis=0))
+            iqr[iqr == 0] = 1.0  # avoid division by zero
+            feats_scaled = (feats_valid - med) / iqr
 
             # 2) run DBSCAN
-            # eps and min_samples will need tuning on your data
-            eps = 0.5 * np.median(np.std(feats, axis=0))  # crude scale-adaptive eps
-            db = DBSCAN(eps=eps, min_samples=5, n_jobs=-1)
-            labels = db.fit_predict(feats)  # length: n_samples [web:57]
-            unique, counts = np.unique(labels, return_counts=True)
+            eps = 0.5 * np.median(np.std(feats_scaled, axis=0))
+            if not np.isfinite(eps) or eps <= 0:
+                eps = 0.5  # fallback to a small positive value
+            try:
+                db = DBSCAN(eps=eps, min_samples=5, n_jobs=-1)
+                labels = db.fit_predict(feats_scaled)
+            except Exception as e:
+                raise RuntimeError(f"DBSCAN failed: {e}")
 
+            unique, counts = np.unique(labels, return_counts=True)
             non_noise = unique != -1
             if not np.any(non_noise):
                 raise RuntimeError("DBSCAN found no non-noise cluster; adjust eps/min_samples.")
 
-            largest_cluster = unique[non_noise][np.argmax(counts[non_noise])]
-            sample_mask = labels == largest_cluster
-
             # 3) build sample mask: all non-noise labels are considered "clean"
-            sample_mask = labels != -1
+            # Map back to original sample indices
+            sample_mask = np.zeros(feats.shape[0], dtype=bool)
+            sample_mask[valid_mask] = labels != -1
 
             # 4) build calibration data
             clean = X[:, sample_mask]
