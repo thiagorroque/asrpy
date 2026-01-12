@@ -14,6 +14,8 @@ from scipy import linalg
 from scipy.stats import genextreme
 
 from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 from numpy.linalg import pinv
 
@@ -258,43 +260,38 @@ class ASR():
             clean = X[:, sample_mask]
 
         elif method == "dbscan":
-            # 1) construct per-sample feature space
-            feats = np.sort(np.abs(X), axis=0)[::-1, :]
-            feats = feats.T  # shape: (n_samples, n_channels)
+            # 1) (Optional) temporal downsampling for clustering only
+            # e.g., cluster on every k-th sample (cluster_idx) then expand back
+            k = 4  # adjust as needed
+            cluster_idx = np.arange(0, X.shape[1], k)
+            X_sub = X[:, cluster_idx]  # (n_channels, n_samples_sub)
 
-            # 1a) Remove samples with NaN or Inf (for stability)
-            valid_mask = np.all(np.isfinite(feats), axis=1)
-            feats_valid = feats[valid_mask]
-            if feats_valid.shape[0] == 0:
-                raise RuntimeError("All feature samples contain NaN or Inf. Check input data.")
+            # 2) construct features: sorted absolute amplitudes
+            feats = np.sort(np.abs(X_sub), axis=0)[::-1, :].T  # (n_samples_sub, n_channels)
 
-            # 1b) Robust scaling (median and IQR)
-            med = np.median(feats_valid, axis=0)
-            iqr = np.subtract(*np.percentile(feats_valid, [75, 25], axis=0))
-            iqr[iqr == 0] = 1.0  # avoid division by zero
-            feats_scaled = (feats_valid - med) / iqr
+            # 3) standardize & reduce dimensionality
+            feats = StandardScaler().fit_transform(feats)
+            pca = PCA(n_components=min(10, feats.shape[1]))   # cap dimensions
+            feats_low = pca.fit_transform(feats)              # (n_samples_sub, n_components)
 
-            # 2) run DBSCAN
-            eps = 0.5 * np.median(np.std(feats_scaled, axis=0))
-            if not np.isfinite(eps) or eps <= 0:
-                eps = 0.5  # fallback to a small positive value
-            try:
-                db = DBSCAN(eps=eps, min_samples=5, n_jobs=-1)
-                labels = db.fit_predict(feats_scaled)
-            except Exception as e:
-                raise RuntimeError(f"DBSCAN failed: {e}")
+            # 4) run DBSCAN on low-dim features
+            # eps and min_samples need tuning; start small
+            db = DBSCAN(eps=0.5, min_samples=10, n_jobs=-1, metric="euclidean")
+            labels_sub = db.fit_predict(feats_low)
 
+            # 5) map cluster labels back to full time axis
+            labels = np.full(X.shape[1], -1, dtype=int)
+            labels[cluster_idx] = labels_sub
+
+            # 6) define clean samples (non-noise, optionally largest cluster only)
             unique, counts = np.unique(labels, return_counts=True)
             non_noise = unique != -1
             if not np.any(non_noise):
-                raise RuntimeError("DBSCAN found no non-noise cluster; adjust eps/min_samples.")
+                raise RuntimeError("DBSCAN found no non-noise cluster; adjust eps/min_samples or features.")
 
-            # 3) build sample mask: all non-noise labels are considered "clean"
-            # Map back to original sample indices
-            sample_mask = np.zeros(feats.shape[0], dtype=bool)
-            sample_mask[valid_mask] = labels != -1
+            largest_cluster = unique[non_noise][np.argmax(counts[non_noise])]
+            sample_mask = labels == largest_cluster
 
-            # 4) build calibration data
             clean = X[:, sample_mask]
 
         else:
