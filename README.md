@@ -49,11 +49,7 @@ https://doi.org/10.1016/j.jneumeth.2025.110465
 
 ## Installation
 
-You can install the latest ASRpy release using:
-```
-pip install asrpy
-```
-or install the current working version directly from GitHub, using:
+Install the current working version directly from GitHub, using:
 ```
 pip install git+https://github.com/thiagorroque/asrpy
 ```
