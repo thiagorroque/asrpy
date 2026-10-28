@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# (c) Dirk Gütlin, 2021. <dirk.guetlin@gmail.com>
+# (c) Thiago Roque, 2026. <thiago.roque@zohomail.com>
 #
 # License: BSD-3-Clause
 """
@@ -15,6 +15,6 @@ the respective submodules.
 
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from .asr import ASR, asr_calibrate, asr_process, clean_windows  # noqa: F401
