@@ -95,16 +95,25 @@ def fit_eeg_distribution(X, min_clean_fraction=0.25, max_dropout_fraction=0.1,
     # we can generally skip the tail below the lower quantile
     lower_min = np.min(quants)
     # maximum width is the fit interval if all data is cleanT
-    max_width = np.diff(quants)
+    # max_width = np.diff(quants)
+    max_width = float(np.diff(quants).item())
     # minimum width of the fit interval, as fraction of data
     min_width = min_clean_fraction * max_width
 
+    
     # Build quantile interval matrix
     cols = np.arange(lower_min,
                      lower_min + max_dropout_fraction + step_sizes[0] * 1e-9,
                      step_sizes[0])
     cols = np.round(n * cols).astype(int)
+
+    print("max_width:", repr(max_width), type(max_width), np.shape(max_width))
+    print("min_width:", repr(min_width), type(min_width), np.shape(min_width))
+    print("step:", repr(step_sizes[1]), type(step_sizes[1]), np.shape(step_sizes[1]))
+
+    # max_width = float(np.asarray(max_width).item())
     rows = np.arange(0, int(np.round(n * max_width)))
+    
     newX = np.zeros((len(rows), len(cols)))
     for i, c in enumerate(range(len(rows))):
         newX[i] = X[c + cols]
@@ -158,6 +167,11 @@ def fit_eeg_distribution(X, min_clean_fraction=0.25, max_dropout_fraction=0.1,
 
     # calculate the distribution's standard deviation from alpha and beta
     sig = np.sqrt((alpha ** 2) * gamma(3 / beta) / gamma(1 / beta))
+
+    mu = np.asarray(mu).item()
+    sig = np.asarray(sig).item()
+    alpha = np.asarray(alpha).item()
+    beta = np.asarray(beta).item()
 
     return mu, sig, alpha, beta
 
@@ -501,6 +515,15 @@ def block_covariance(data, window=128):
         Block covariance.
     """
     n_ch, n_times = data.shape
+
+    ## Begin test insert ##
+    print("data.shape:", data.shape)
+    print("n_ch:", n_ch)
+    print("n_times:", n_times)
+    print("window:", window)
+    print("n_ch**2:", n_ch**2)
+    ## End test insert ##
+
     U = np.zeros([len(np.arange(0, n_times - 1, window)), n_ch**2])
     data = data.T
     for k in range(0, window):

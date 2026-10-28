@@ -322,11 +322,17 @@ class ASR():
             "Relax calibration criteria (GEV/DBSCAN) or use a longer segment."
         )
 
-        clean_T = clean.T  # shape: (n_samples_clean, n_channels)
+        # clean_T = clean.T  # shape: (n_samples_clean, n_channels)
+
+        ## Begin test insert ##
+        print("clean.shape:", clean.shape)
+        print('*** making sure changes are updated ***')
+        # print("clean_T.shape:", clean.T.shape)
+        ## End test insert ##
 
         # Perform calibration
         self.M, self.T = asr_calibrate(
-            clean_T,
+            clean,
             sfreq=self.sfreq,
             cutoff=self.cutoff,
             blocksize=self.blocksize,
@@ -548,11 +554,29 @@ def asr_calibrate(X, sfreq, cutoff=20, blocksize=100, win_len=0.5,
     sig = np.zeros(nc)
     for ichan in reversed(range(nc)):
         rms = x[ichan, :] ** 2
-        Y = []
-        for o in offsets:
-            Y.append(np.sqrt(np.sum(rms[o:o + N]) / N))
-        mu[ichan], sig[ichan], alpha, beta = fit_eeg_distribution(
-            Y, min_clean_fraction, max_dropout_fraction)
+        cs = np.concatenate(([0.0], np.cumsum(rms, dtype=np.float64)))
+        Y = np.sqrt((cs[offsets + N] - cs[offsets]) / N)
+        
+        # *** BEGIN test insertion
+        result = fit_eeg_distribution(
+            Y, min_clean_fraction, max_dropout_fraction
+        )
+
+        print("Y.shape:", np.shape(Y))
+        print("Number of returned values:", len(result))
+
+        for i, value in enumerate(result):
+            print(i, repr(value), np.shape(value))
+
+        mu[ichan], sig[ichan], alpha, beta = result
+
+        
+        # mu[ichan], sig[ichan], alpha, beta = fit_eeg_distribution(
+        #     Y, min_clean_fraction, max_dropout_fraction)
+
+        # *** END test insertion
+    
+    
     T = np.dot(np.diag(mu + cutoff * sig), V.T)
 
     logging.debug('[ASR] Calibration done.')
@@ -835,7 +859,8 @@ def clean_windows(X, sfreq, max_bad_chans=0.2, zthresholds=[-3.5, 5],
 
         # compute root mean squared amplitude
         x = X[ichan, :] ** 2
-        Y = np.array([np.sqrt(np.sum(x[o:o + N]) / N) for o in offsets])
+        cs = np.concatenate(([0.0], np.cumsum(x, dtype=np.float64)))
+        Y = np.sqrt((cs[offsets + N] - cs[offsets]) / N)
 
         # fit a distribution to the clean EEG part
         mu, sig, alpha, beta = fit_eeg_distribution(
